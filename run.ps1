@@ -28,7 +28,7 @@ function print_url([string]$arg1)
 function read_env_from_image
 {
 	echo "Info: Reading environment from windows-agent"
-	$inspect = docker -H 172.16.0.1 inspect windows-agent | ConvertFrom-Json
+	$inspect = docker -H "$env:DEFAULT_GATEWAY" inspect windows-agent | ConvertFrom-Json
 	foreach ($env in $inspect.Config.Env) {
 		$a, $b = $env.split("=", 2)
 		if ($a -eq "CATTLE_URL"){
@@ -100,13 +100,13 @@ function register()
 
 function cleanup_windows_agent
 {
-	docker -H 172.16.0.1:2375 inspect windows-agent 2>&1 | Out-Null
+	docker -H "$env:DEFAULT_GATEWAY" inspect windows-agent 2>&1 | Out-Null
 	if ($LASTEXITCODE -ne 0) {
 		return
 	}
 	for($i=0;$i -le 300;$i++){
 		try {
-			docker -H 172.16.0.1:2375 rm -f windows-agent 2>&1 | Out-Null
+			docker -H "$env:DEFAULT_GATEWAY" rm -f windows-agent 2>&1 | Out-Null
 			if ($LASTEXITCODE -eq 0) {
 				break
 			}
@@ -118,19 +118,27 @@ function cleanup_windows_agent
 	}
 }
 
+function get_internal_gateway
+{
+	$obj = ipconfig | Select-String "Default Gateway"
+	$ip = [regex]::match($obj, '(?:[0-9]{1,3}\.){3}[0-9]{1,3}').Value
+	$env:DEFAULT_GATEWAY = $ip
+	echo "Default gateway $env:DEFAULT_GATEWAY"
+}
 function launch_agent
 {
-	docker -H 172.16.0.1:2375 run `
+	docker -H "$env:DEFAULT_GATEWAY" run `
 	-d `
 	-v c:/Cattle:c:/Cattle `
-	--name windows-agent `
+	--name rancher-agent `
 	--restart=always `
 	--privileged `
 	-e "CATTLE_URL=$CATTLE_URL" `
 	-e "CATTLE_AGENT_IP=$CATTLE_AGENT_IP" `
 	-e "CATTLE_ACCESS_KEY=$CATTLE_ACCESS_KEY" `
 	-e "CATTLE_SECRET_KEY=$CATTLE_SECRET_KEY" `
-	windows-agent `
+	-e "DEFAULT_GATEWAY=$env:DEFAULT_GATEWAY" `
+	rancher/agent run`
 }
 
 if ($Args -eq 0){
@@ -138,8 +146,23 @@ if ($Args -eq 0){
 	 exit
 }
 
-if ($Args[0] -match "http.*" -Or $Args[0] -eq "register" -Or $Args[0] -eq "upgrade") {
+if ($Args[0] -eq "run")
+{
+	echo "Cattle_Url: $env:CATTLE_URL"
+	$url = $env:CATTLE_URL + "/scripts/api.crt"
+	if ( !(Test-Path "C:\Cattle\etc\cattle")) {
+		New-Item C:\Cattle\etc\cattle -type directory
+	}
+	Invoke-WebRequest -Uri $url -OutFile "C:\Cattle\etc\cattle\api.crt"
+	if ( !(Test-Path "C:\Cattle\containers")) {
+		New-Item C:\Cattle\containers -type directory
+	}
+	& "C:\agent.exe"
+}
+Elseif ($Args[0] -match "http.*" -Or $Args[0] -eq "register" -Or $Args[0] -eq "upgrade") 
+{
 	echo $http_proxy $https_proxy
+	get_internal_gateway
 	setup_cattle_url $Args[0]
 	if ($Args[0] -eq "upgrade") {
 		echo "Info: Running upgrade"
@@ -152,7 +175,7 @@ if ($Args[0] -match "http.*" -Or $Args[0] -eq "register" -Or $Args[0] -eq "upgra
 	}
 	setup_env $Args[0]
 	cleanup_windows_agent 
-	$ID=$(launch_agent $args[0])
+	$ID=$(launch_agent) 
 	echo "Info: Launched Rancher Agent $ID"
 	echo "Deleting Bootstrap Agent"
 }

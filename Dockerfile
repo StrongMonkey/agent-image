@@ -10,6 +10,10 @@ RUN powershell.exe -Command \
 
 RUN powershell.exe -Command \
     $ErrorActionPreference = 'Stop'; \
+    Invoke-WebRequest -Uri 'https://github.com/StrongMonkey/agent/releases/download/v1.0.1/agent.exe' -OutFile "c:/agent.exe" -UseBasicParsing;
+
+RUN powershell.exe -Command \
+    $ErrorActionPreference = 'Stop'; \
     wget https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi -OutFile c:\python-2.7.12.msi ; \
     Start-Process c:\python-2.7.12.msi -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1' -Wait ; \
     Remove-Item c:\python-2.7.12.msi -Force; \
