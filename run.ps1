@@ -66,7 +66,7 @@ function setup_cattle_url([string]$arg1)
 function setup_env([string]$arg1)
 {
 	if ($arg1 -ne "upgrade") {
-		foreach ($env in $(c:\Python27\python .\resolve_url.py $CATTLE_URL)) {
+		foreach ($env in $(C:\register-tool.exe --load-url $CATTLE_URL)) {
 		        Invoke-Expression $env
 		}
 		$script:CATTLE_REGISTRATION_ACCESS_KEY = [environment]::GetEnvironmentVariable("CATTLE_REGISTRATION_ACCESS_KEY", "Machine")
@@ -93,7 +93,9 @@ function setup_env([string]$arg1)
 
 function register()
 {
-	foreach ($env in $(c:\Python27\python .\register.py $CATTLE_REGISTRATION_ACCESS_KEY $CATTLE_REGISTRATION_SECRET_KEY $CATTLE_URL)) { 
+	$url = print_url $CATTLE_URL
+	echo $url
+	foreach ($env in $(C:\register-tool.exe --windows $url","$CATTLE_REGISTRATION_ACCESS_KEY","$CATTLE_REGISTRATION_SECRET_KEY)) { 
 		Invoke-Expression $env 
 	}
 }

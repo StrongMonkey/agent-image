@@ -14,17 +14,9 @@ RUN powershell.exe -Command \
 
 RUN powershell.exe -Command \
     $ErrorActionPreference = 'Stop'; \
-    wget https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi -OutFile c:\python-2.7.12.msi ; \
-    Start-Process c:\python-2.7.12.msi -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1' -Wait ; \
-    Remove-Item c:\python-2.7.12.msi -Force; \
-    wget https://bootstrap.pypa.io/get-pip.py -OutFile c:\get-pip.py; \
-    ;
-
-RUN ["c:/Python27/python", "c:/get-pip.py"]
-
-RUN ["c:/Python27/Scripts/pip", "install", "cattle"]
+    Invoke-WebRequest -Uri 'https://github.com/StrongMonkey/register-tool/releases/download/v1.0/register-tool.exe' -OutFile "c:/register-tool.exe" -UseBasicParsing;
 
 RUN powershell New-Item -ItemType directory -Path c:/Cattle
-COPY resolve_url.py register.py run.ps1 c:/
+COPY run.ps1 c:/
 ENTRYPOINT ["powershell", "c:/run.ps1"]
 LABEL "io.rancher.container.system"="rancher-agent"
